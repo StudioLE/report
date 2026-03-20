@@ -1,0 +1,10 @@
+---
+source: crates/report/src/render.rs
+expression: output
+---
+studiole_report::OuterError::Operation
+
+  × Outer operation failed
+  │ ▷ retries: 3
+  ╰─▶ Inner operation failed
+      ▷ path: /tmp/data.bin

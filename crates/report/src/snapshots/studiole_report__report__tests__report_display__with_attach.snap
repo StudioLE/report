@@ -1,0 +1,7 @@
+---
+source: crates/report/src/report.rs
+expression: display
+---
+Outer operation failed
+▷ path: /tmp/file.txt
+▷ retries: 3

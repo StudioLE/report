@@ -1,0 +1,6 @@
+---
+source: crates/report/src/report.rs
+expression: debug
+---
+Outer operation failed
+  Caused by: Inner operation failed

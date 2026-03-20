@@ -1,0 +1,8 @@
+---
+source: crates/report/src/report.rs
+expression: debug
+---
+Outer operation failed
+▷ key: outer_val
+  Caused by: Inner operation failed
+▷ key: inner_val

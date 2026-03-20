@@ -1,0 +1,6 @@
+---
+source: crates/report/src/report.rs
+expression: display
+---
+Outer operation failed
+▷ count: 42

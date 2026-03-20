@@ -1,0 +1,22 @@
+[package]
+name = "studiole-report"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A concrete `Report<T>` type that implements `miette::Diagnostic` for rich error rendering"
+
+[features]
+default = []
+render = ["miette/fancy"]
+
+[dependencies]
+miette = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true
