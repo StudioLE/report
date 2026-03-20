@@ -60,6 +60,12 @@ impl<T: StdError + Send + Sync + 'static> Report<T> {
     }
 }
 
+impl<T: StdError + Send + Sync + 'static> From<T> for Report<T> {
+    fn from(error: T) -> Self {
+        Self::new(error)
+    }
+}
+
 impl<T: StdError + Send + Sync + 'static> Debug for Report<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(self, f)?;
@@ -219,5 +225,22 @@ mod tests {
         let display = report.to_string();
         // Assert
         assert_snapshot!(display);
+    }
+
+    #[test]
+    fn report_from__converts_error_via_question_mark() {
+        // Arrange
+        fn fallible() -> Result<(), OuterError> {
+            Err(OuterError::Operation)
+        }
+        fn wrapper() -> Result<(), Report<OuterError>> {
+            fallible()?;
+            Ok(())
+        }
+        // Act
+        let report = wrapper().expect_err("should be err");
+        // Assert
+        assert_eq!(*report.current_context(), OuterError::Operation);
+        assert!(report.source().is_none());
     }
 }
