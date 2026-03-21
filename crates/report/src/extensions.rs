@@ -28,6 +28,9 @@ pub trait ReportResultExt<T, E> {
     /// Add a key-value pair of additional context.
     #[must_use]
     fn attach(self, key: impl Into<String>, value: impl Display) -> Self;
+    /// Add a path as additional context under the key `"path"`.
+    #[must_use]
+    fn attach_path(self, value: impl AsRef<Path>) -> Self;
     /// Add a key-value pair of additional context with a lazily evaluated value.
     #[must_use]
     fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self;
@@ -36,6 +39,10 @@ pub trait ReportResultExt<T, E> {
 impl<T, E: StdError + Send + Sync + 'static> ReportResultExt<T, E> for Result<T, Report<E>> {
     fn attach(self, key: impl Into<String>, value: impl Display) -> Self {
         self.map_err(|report| report.attach(key, value))
+    }
+
+    fn attach_path(self, value: impl AsRef<Path>) -> Self {
+        self.map_err(|report| report.attach_path(value))
     }
 
     fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self {
@@ -58,6 +65,20 @@ mod tests {
         assert_eq!(report.attachments.len(), 1);
         let first = report.attachments.first().expect("should have attachment");
         assert_eq!(*first, ("file".to_owned(), "test.txt".to_owned()));
+    }
+
+    #[test]
+    fn report_result_ext_attach_path() {
+        // Arrange
+        let input: Result<i32, Report<OuterError>> = Err(Report::new(OuterError::Operation));
+        // Act
+        let report = input
+            .attach_path("/tmp/data.bin")
+            .expect_err("should be err");
+        // Assert
+        assert_eq!(report.attachments.len(), 1);
+        let first = report.attachments.first().expect("should have attachment");
+        assert_eq!(*first, ("path".to_owned(), "/tmp/data.bin".to_owned()));
     }
 
     #[test]
