@@ -37,8 +37,8 @@ impl<T: StdError + Send + Sync + 'static> Report<T> {
 
     /// Add a key-value pair of additional context.
     #[must_use]
-    pub fn attach(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
-        self.attachments.push((key.into(), value.into()));
+    pub fn attach(mut self, key: impl Into<String>, value: impl Display) -> Self {
+        self.attachments.push((key.into(), value.to_string()));
         self
     }
 
@@ -54,8 +54,12 @@ impl<T: StdError + Send + Sync + 'static> Report<T> {
 
     /// Add a key-value pair of additional context with a lazily evaluated value.
     #[must_use]
-    pub fn attach_with(mut self, key: impl Into<String>, value: impl FnOnce() -> String) -> Self {
-        self.attachments.push((key.into(), value()));
+    pub fn attach_with<D: Display>(
+        mut self,
+        key: impl Into<String>,
+        value: impl FnOnce() -> D,
+    ) -> Self {
+        self.attachments.push((key.into(), value().to_string()));
         self
     }
 }
@@ -125,7 +129,7 @@ mod tests {
         // Arrange
         let report = Report::new(OuterError::Operation)
             .attach("path", "/tmp/file.txt")
-            .attach("retries", "3");
+            .attach("retries", 3);
         // Act
         let display = report.to_string();
         // Assert
@@ -135,7 +139,7 @@ mod tests {
     #[test]
     fn report_display__with_attach_with() {
         // Arrange
-        let report = Report::new(OuterError::Operation).attach_with("count", || String::from("42"));
+        let report = Report::new(OuterError::Operation).attach_with("count", || 42);
         // Act
         let display = report.to_string();
         // Assert

@@ -27,18 +27,18 @@ impl<T, E: StdError + Send + Sync + 'static> ResultExt<T> for Result<T, E> {
 pub trait ReportResultExt<T, E> {
     /// Add a key-value pair of additional context.
     #[must_use]
-    fn attach(self, key: impl Into<String>, value: impl Into<String>) -> Self;
+    fn attach(self, key: impl Into<String>, value: impl Display) -> Self;
     /// Add a key-value pair of additional context with a lazily evaluated value.
     #[must_use]
-    fn attach_with(self, key: impl Into<String>, value: impl FnOnce() -> String) -> Self;
+    fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self;
 }
 
 impl<T, E: StdError + Send + Sync + 'static> ReportResultExt<T, E> for Result<T, Report<E>> {
-    fn attach(self, key: impl Into<String>, value: impl Into<String>) -> Self {
+    fn attach(self, key: impl Into<String>, value: impl Display) -> Self {
         self.map_err(|report| report.attach(key, value))
     }
 
-    fn attach_with(self, key: impl Into<String>, value: impl FnOnce() -> String) -> Self {
+    fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self {
         self.map_err(|report| report.attach_with(key, value))
     }
 }
@@ -65,9 +65,7 @@ mod tests {
         // Arrange
         let input: Result<i32, Report<OuterError>> = Err(Report::new(OuterError::Operation));
         // Act
-        let report = input
-            .attach_with("count", || String::from("7"))
-            .expect_err("should be err");
+        let report = input.attach_with("count", || 7).expect_err("should be err");
         // Assert
         assert_eq!(report.attachments.len(), 1);
         let first = report.attachments.first().expect("should have attachment");
