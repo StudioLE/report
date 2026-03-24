@@ -6,7 +6,7 @@ A concrete `Report<T>` type that implements `miette::Diagnostic` for rich error 
 
 - **Context-typed errors** - `Report<T>` is generic over your error enum, giving you typed access to the current context via `current_context()`
 - **Source chain** - `change_context()` wraps one report as the source of another, building an error chain that traces the path from root cause to high-level failure
-- **Structured attachments** - key-value pairs attach diagnostic data like file paths, retry counts, or request IDs without polluting error variants
+- **Structured attachments** - attach diagnostic data like file paths, retry counts, or request IDs without polluting error variants
 - **Diagnostic rendering** - implements `miette::Diagnostic` for graphical output with error codes derived from the context type
 - **Standard error integration** - implements `std::error::Error`, `Display`, and `Debug`, so it works with `?` and any code expecting `dyn Error`
 - **Inspired by [`error-stack`](https://docs.rs/error-stack/latest/error_stack/)**. `Report<T>` implements `std::error::Error` so it composes naturally with the standard error ecosystem.

@@ -1,10 +1,10 @@
-//! Render a [`Report`] as a rich diagnostic string using miette.
+//! Render errors as rich diagnostic strings using miette.
 
 use crate::prelude::*;
 use miette::{GraphicalReportHandler, GraphicalTheme};
 use std::env;
 
-impl<T: StdError + Send + Sync + 'static> Report<T> {
+impl StructuredError {
     /// Render the error chain as a graphical diagnostic string.
     ///
     /// Uses unicode characters with ANSI colors.
@@ -67,5 +67,22 @@ mod tests {
         // Assert
         let output = strip_ansi_codes(&output);
         assert_snapshot!(output);
+    }
+
+    #[test]
+    fn structured_error_render() {
+        // Arrange
+        let error = StructuredError::new(OuterError::Operation);
+        // Act
+        let output = error.render();
+        // Preview
+        eprintln!("{output}");
+        // Assert
+        let output = strip_ansi_codes(&output);
+        assert_snapshot!(output, @r"
+        studiole_report::OuterError::Operation
+
+          × Outer operation failed
+        ");
     }
 }
