@@ -1,66 +1,62 @@
-//! Error report with diagnostic rendering.
+//! Typed error report wrapping [`StructuredError`].
 use crate::prelude::*;
+use std::marker::PhantomData;
+use std::ops::Deref;
 
-/// Error report that wraps a typed context with an optional source chain.
+/// Typed error report that wraps a [`StructuredError`] with compile-time type information.
 pub struct Report<T> {
-    /// Typed error context.
-    pub(crate) context: T,
-    /// Key-value pairs of additional context.
-    pub(crate) attachments: Vec<(String, String)>,
-    /// Underlying error in the source chain.
-    pub(crate) source: Option<Box<dyn StdError + Send + Sync>>,
+    /// The underlying type-erased error.
+    pub(crate) inner: StructuredError,
+    /// Marker for the typed context.
+    _marker: PhantomData<T>,
 }
 
 impl<T: StdError + Send + Sync + 'static> Report<T> {
     /// Create a report from the given error context with no source.
     pub fn new(context: T) -> Self {
         Self {
-            context,
-            attachments: Vec::new(),
-            source: None,
+            inner: StructuredError::new(context),
+            _marker: PhantomData,
         }
     }
 
-    /// The typed context stored in this report.
+    /// Create a report from a pre-built [`StructuredError`].
+    pub(crate) fn from_inner(inner: StructuredError) -> Self {
+        Self {
+            inner,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Get the current context.
+    #[must_use]
     pub fn current_context(&self) -> &T {
-        &self.context
+        self.inner
+            .context
+            .downcast_ref::<T>()
+            .expect("Report<T> inner context should be of type T")
     }
 
     /// Wrap this report as the source of a new context.
     pub fn change_context<U: StdError + Send + Sync + 'static>(self, new_context: U) -> Report<U> {
         Report {
-            context: new_context,
-            attachments: Vec::new(),
-            source: Some(Box::new(self)),
+            inner: self.inner.change_context(new_context),
+            _marker: PhantomData,
         }
     }
+}
 
-    /// Add a key-value pair of additional context.
-    #[must_use]
-    pub fn attach(mut self, key: impl Into<String>, value: impl Display) -> Self {
-        self.attachments.push((key.into(), value.to_string()));
-        self
+impl<T: StdError + Send + Sync + 'static> From<Report<T>> for StructuredError {
+    fn from(report: Report<T>) -> Self {
+        report.inner
     }
+}
 
-    /// Add a path as additional context under the key `"path"`.
-    #[must_use]
-    pub fn attach_path(mut self, value: impl AsRef<Path>) -> Self {
-        self.attachments.push((
-            "path".to_owned(),
-            value.as_ref().to_string_lossy().to_string(),
-        ));
-        self
-    }
+impl<T: StdError + Send + Sync + 'static> Deref for Report<T> {
+    type Target = StructuredError;
 
-    /// Add a key-value pair of additional context with a lazily evaluated value.
-    #[must_use]
-    pub fn attach_with<D: Display>(
-        mut self,
-        key: impl Into<String>,
-        value: impl FnOnce() -> D,
-    ) -> Self {
-        self.attachments.push((key.into(), value().to_string()));
-        self
+    fn deref(&self) -> &StructuredError {
+        &self.inner
     }
 }
 
@@ -72,41 +68,25 @@ impl<T: StdError + Send + Sync + 'static> From<T> for Report<T> {
 
 impl<T: StdError + Send + Sync + 'static> Debug for Report<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        Display::fmt(self, f)?;
-        let mut source = self.source();
-        while let Some(err) = source {
-            write!(f, "\n  Caused by: {err}")?;
-            source = err.source();
-        }
-        Ok(())
+        Debug::fmt(&self.inner, f)
     }
 }
 
-impl<T: Display> Display for Report<T> {
+impl<T: StdError + Send + Sync + 'static> Display for Report<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        Display::fmt(&self.context, f)?;
-        for (key, value) in &self.attachments {
-            write!(f, "\n▷ {key}: {value}")?;
-        }
-        Ok(())
+        Display::fmt(&self.inner, f)
     }
 }
 
 impl<T: StdError + Send + Sync + 'static> StdError for Report<T> {
-    #[expect(
-        clippy::as_conversions,
-        reason = "cast from boxed trait object to trait reference"
-    )]
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
-        self.source
-            .as_ref()
-            .map(|s| s.as_ref() as &(dyn StdError + 'static))
+        self.inner.source()
     }
 }
 
 impl<T: StdError + Send + Sync + 'static> Diagnostic for Report<T> {
     fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
-        Some(Box::new(short_code(&self.context)))
+        self.inner.code()
     }
 }
 
@@ -218,7 +198,7 @@ mod tests {
         // Act
         let outer = inner.change_context(OuterError::Operation);
         // Assert
-        assert!(outer.attachments.is_empty());
+        assert_eq!(outer.inner.attached.len(), 0);
     }
 
     #[test]
@@ -246,5 +226,15 @@ mod tests {
         // Assert
         assert_eq!(*report.current_context(), OuterError::Operation);
         assert!(report.source().is_none());
+    }
+
+    #[test]
+    fn structured_error_from() {
+        // Arrange
+        let report = Report::new(OuterError::Operation).attach("key", "value");
+        // Act
+        let error = StructuredError::from(report);
+        // Assert
+        assert_eq!(error.to_string(), "Outer operation failed\n▷ key: value");
     }
 }

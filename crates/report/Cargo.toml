@@ -5,7 +5,7 @@ authors.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "A concrete `Report<T>` type that implements `miette::Diagnostic` for rich error rendering"
+description = "Report<T> and StructuredError types with miette diagnostic rendering"
 
 [features]
 default = []

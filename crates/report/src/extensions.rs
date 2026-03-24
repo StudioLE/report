@@ -15,38 +15,10 @@ impl<T, E: StdError + Send + Sync + 'static> ResultExt<T> for Result<T, E> {
         self,
         context: C,
     ) -> Result<T, Report<C>> {
-        self.map_err(|error| Report {
-            context,
-            attachments: Vec::new(),
-            source: Some(Box::new(error)),
+        self.map_err(|error| {
+            let inner = StructuredError::new(error).change_context(context);
+            Report::from_inner(inner)
         })
-    }
-}
-
-/// Attach additional context to a [`Report`] inside a `Result`.
-pub trait ReportResultExt<T, E> {
-    /// Add a key-value pair of additional context.
-    #[must_use]
-    fn attach(self, key: impl Into<String>, value: impl Display) -> Self;
-    /// Add a path as additional context under the key `"path"`.
-    #[must_use]
-    fn attach_path(self, value: impl AsRef<Path>) -> Self;
-    /// Add a key-value pair of additional context with a lazily evaluated value.
-    #[must_use]
-    fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self;
-}
-
-impl<T, E: StdError + Send + Sync + 'static> ReportResultExt<T, E> for Result<T, Report<E>> {
-    fn attach(self, key: impl Into<String>, value: impl Display) -> Self {
-        self.map_err(|report| report.attach(key, value))
-    }
-
-    fn attach_path(self, value: impl AsRef<Path>) -> Self {
-        self.map_err(|report| report.attach_path(value))
-    }
-
-    fn attach_with<D: Display>(self, key: impl Into<String>, value: impl FnOnce() -> D) -> Self {
-        self.map_err(|report| report.attach_with(key, value))
     }
 }
 
@@ -54,44 +26,6 @@ impl<T, E: StdError + Send + Sync + 'static> ReportResultExt<T, E> for Result<T,
 mod tests {
     use super::*;
     use std::io;
-
-    #[test]
-    fn report_result_ext_attach() {
-        // Arrange
-        let input: Result<i32, Report<OuterError>> = Err(Report::new(OuterError::Operation));
-        // Act
-        let report = input.attach("file", "test.txt").expect_err("should be err");
-        // Assert
-        assert_eq!(report.attachments.len(), 1);
-        let first = report.attachments.first().expect("should have attachment");
-        assert_eq!(*first, ("file".to_owned(), "test.txt".to_owned()));
-    }
-
-    #[test]
-    fn report_result_ext_attach_path() {
-        // Arrange
-        let input: Result<i32, Report<OuterError>> = Err(Report::new(OuterError::Operation));
-        // Act
-        let report = input
-            .attach_path("/tmp/data.bin")
-            .expect_err("should be err");
-        // Assert
-        assert_eq!(report.attachments.len(), 1);
-        let first = report.attachments.first().expect("should have attachment");
-        assert_eq!(*first, ("path".to_owned(), "/tmp/data.bin".to_owned()));
-    }
-
-    #[test]
-    fn report_result_ext_attach_with() {
-        // Arrange
-        let input: Result<i32, Report<OuterError>> = Err(Report::new(OuterError::Operation));
-        // Act
-        let report = input.attach_with("count", || 7).expect_err("should be err");
-        // Assert
-        assert_eq!(report.attachments.len(), 1);
-        let first = report.attachments.first().expect("should have attachment");
-        assert_eq!(*first, ("count".to_owned(), "7".to_owned()));
-    }
 
     #[test]
     fn result_ext_change_context() {
@@ -106,5 +40,19 @@ mod tests {
         assert_eq!(*report.current_context(), OuterError::Operation);
         let source = report.source().expect("should have source");
         assert_eq!(source.to_string(), expected);
+    }
+
+    #[test]
+    fn result_ext_change_context__works_with_from() {
+        // Arrange
+        let expected = "broken";
+        let result: Result<i32, io::Error> = Err(io::Error::other(expected));
+        let report = result
+            .change_context(OuterError::Operation)
+            .expect_err("should be err");
+        // Act
+        let error = StructuredError::from(report);
+        // Assert
+        assert_eq!(error.to_string(), "Outer operation failed");
     }
 }

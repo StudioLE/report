@@ -1,0 +1,6 @@
+---
+source: crates/report/src/structured_error.rs
+expression: debug
+---
+Outer operation failed
+  Caused by: Inner operation failed

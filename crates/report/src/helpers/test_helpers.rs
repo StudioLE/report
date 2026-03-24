@@ -1,17 +1,21 @@
+//! Shared error types and utilities for tests.
 use crate::prelude::*;
 
+/// Outer error context for testing error chains.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum OuterError {
     #[error("Outer operation failed")]
     Operation,
 }
 
+/// Inner error context for testing error chains.
 #[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
 pub enum InnerError {
     #[error("Inner operation failed")]
     Operation,
 }
 
+/// Unit struct error for testing non-enum error types.
 #[derive(Debug, Error)]
 #[error("Unit struct error")]
 pub struct UnitError;
